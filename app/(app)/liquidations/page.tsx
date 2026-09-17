@@ -4,6 +4,7 @@ import { LiquidationsTable } from '@/components/sui-tables';
 import { BarChart, DonutChart } from '@/components/charts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { loadSui } from '@/lib/data';
+import { isPriced } from '@/lib/sui';
 import { usd } from '@/lib/format';
 
 export const revalidate = 300;
@@ -11,7 +12,7 @@ export const metadata = { title: 'Liquidations' };
 
 export default async function Liquidations() {
   const d = await loadSui();
-  const r = d.recent.filter((l) => l.debtUsd > 0);
+  const r = d.recent.filter(isPriced);
   const unpriced = d.recent.length - r.length;
   const byProtocol = new Map<string, number>(); r.forEach((l) => byProtocol.set(l.protocolLabel, (byProtocol.get(l.protocolLabel) ?? 0) + l.collateralUsd));
   const seized = r.reduce((a, l) => a + l.collateralUsd, 0), gas = r.reduce((a, l) => a + l.gasUsd, 0), margin = r.reduce((a, l) => a + l.margin, 0);
@@ -22,7 +23,7 @@ export default async function Liquidations() {
   return (
     <>
       <PageHeader eyebrow="Liquidations" question="How much collateral is being liquidated on Sui, and who is doing it?"
-        answer={<>{r.length.toLocaleString('en-US')} liquidations in the last {config.liquidationDays} days seized {usd(seized)} of collateral across NAVI, Suilend, Scallop and AlphaLend, as of {d.asOf}. {liquidators.toLocaleString('en-US')} distinct liquidator addresses did the work, paying {usd(gas, 2)} in gas for an estimated {usd(margin)} of gross margin.{unpriced ? ` ${unpriced.toLocaleString('en-US')} more ${unpriced === 1 ? 'event' : 'events'} arrived with no debt figure and ${unpriced === 1 ? 'is' : 'are'} left out of every total.` : ''} Bucket liquidations are structurally near zero and are not indexed.</>} />
+        answer={<>{r.length.toLocaleString('en-US')} liquidations in the last {config.liquidationDays} days seized {usd(seized)} of collateral across NAVI, Suilend, Scallop and AlphaLend, as of {d.asOf}. {liquidators.toLocaleString('en-US')} distinct liquidator addresses did the work, paying {usd(gas, 2)} in gas for an estimated {usd(margin)} of gross margin.{unpriced ? ` ${unpriced.toLocaleString('en-US')} more ${unpriced === 1 ? 'event' : 'events'} arrived with no usable debt figure (none, or collateral far above it) and ${unpriced === 1 ? 'is' : 'are'} left out of every total.` : ''} Bucket liquidations are structurally near zero and are not indexed.</>} />
       <div className="grid grid-cols-2 gap-4 px-4 lg:px-6 @2xl/main:grid-cols-4">
         {stat('Events', r.length.toLocaleString('en-US'), `last ${config.liquidationDays} days`)}
         {stat('Collateral seized', usd(seized), 'at the price at the time')}
@@ -40,7 +41,7 @@ export default async function Liquidations() {
         </Card>
       </div>
       <LiquidationsTable data={d.recent} title="Recent liquidations" pageSize={15}
-        caption={<><b className="font-medium text-foreground">One row per event, newest first.</b> Collateral seized and debt repaid at the prices at the time; the liquidator&apos;s margin is the difference. Rows marked &quot;no debt figure&quot; are decoding gaps and count in no total. Open the transaction on Suiscan for the full trace.</>} />
+        caption={<><b className="font-medium text-foreground">One row per event, newest first.</b> Collateral seized and debt repaid at the prices at the time; the liquidator&apos;s margin is the difference. Rows marked &quot;unreliable&quot; have no usable debt figure and count in no total. Open the transaction on Suiscan for the full trace.</>} />
     </>
   );
 }

@@ -16,6 +16,7 @@ const byDayAsc = (a: { day: string }, b: { day: string }) => a.day.localeCompare
 const isoDaysAgo = (n: number, from = new Date()) => { const d = new Date(from); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
 const sum = <T,>(xs: T[], f: (x: T) => number) => xs.reduce((a, x) => a + f(x), 0);
 const change = (now: number, then: number | undefined) => (then ? (now / then - 1) * 100 : 0);
+export const isPriced = (l: Liquidation) => l.debtUsd > 0 && l.collateralUsd <= l.debtUsd * 3;
 export const poolId = (protocol: string, symbol: string) => `${protocol}-${symbol}`.toLowerCase().replace(/[^a-z0-9.-]+/g, '-');
 
 export function toPool(r: Record<string, unknown>): Pool {
@@ -58,9 +59,11 @@ export const loadSui = cache(async (): Promise<SuiOverview> => {
   const lending = pools.filter((p) => p.kind === 'lending'), cdp = pools.filter((p) => p.kind === 'cdp');
   const supplied = sum(pools, (p) => p.supplied), borrowed = sum(pools, (p) => p.borrowed);
   const recent = lq.rows.map(toLiquidation).sort((a, b) => b.ts.localeCompare(a.ts));
-  // A liquidation repays debt by definition. An event with no debt figure is a decoding gap (one NAVI event in
-  // September 2026 carried $72.8M of collateral and no debt); it stays in the table, flagged, and out of every total.
-  const priced = recent.filter((l) => l.debtUsd > 0);
+  // A liquidation repays debt with a bonus of a few percent, so collateral seized sits just above debt repaid.
+  // An event with no debt figure, or collateral more than three times the debt, is a decoding or pricing gap
+  // (one NAVI event in September 2026 carried $72.8M of collateral against a few cents of debt); it stays in
+  // the table, flagged, and out of every total.
+  const priced = recent.filter(isPriced);
   const ld = new Map<string, { events: number; usd: number }>();
   priced.forEach((l) => { const c = ld.get(l.day) ?? { events: 0, usd: 0 }; c.events += 1; c.usd += l.collateralUsd; ld.set(l.day, c); });
   const liquidationsByDay: Point[] = [...ld.entries()].map(([day, v]) => ({ day, ...v })).sort(byDayAsc);

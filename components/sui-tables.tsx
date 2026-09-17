@@ -7,6 +7,7 @@ import { AssetAvatar } from '@/components/asset-avatar';
 import { DataTable, defineColumns, SortHeader } from '@/components/data-table';
 import { address, count, pct, usd } from '@/lib/format';
 import type { Liquidation, Pool, Protocol } from '@/lib/sui-types';
+import { isPriced } from '@/lib/sui';
 
 type Caption = React.ReactNode;
 const riskClass = (u: number) => (u > 85 ? 'text-(--red)' : u > 70 ? 'text-(--yellow)' : 'text-(--green)');
@@ -52,7 +53,7 @@ const liquidationColumns = defineColumns<Liquidation>((col) => [
   col.accessor('ts', { header: 'When (UTC)', enableHiding: false, cell: ({ row }) => <span className="font-mono text-xs">{row.original.ts}</span> }),
   col.accessor('protocolLabel', { header: 'Protocol', cell: ({ row }) => <span className="text-muted-foreground">{row.original.protocolLabel}</span> }),
   col.accessor('collateralUsd', { header: ({ column }) => <SortHeader column={column} label="Collateral seized" />, cell: ({ row }) => <span className="tabular-nums">{usd(row.original.collateralUsd)} <span className="text-xs text-muted-foreground">{row.original.collateralAsset}</span></span> }),
-  col.accessor('debtUsd', { header: ({ column }) => <SortHeader column={column} label="Debt repaid" />, cell: ({ row }) => (row.original.debtUsd > 0 ? <span className="tabular-nums">{usd(row.original.debtUsd)} <span className="text-xs text-muted-foreground">{row.original.debtAsset}</span></span> : <Badge variant="outline" className="text-(--yellow)">no debt figure</Badge>) }),
+  col.accessor('debtUsd', { header: ({ column }) => <SortHeader column={column} label="Debt repaid" />, cell: ({ row }) => (isPriced(row.original) ? <span className="tabular-nums">{usd(row.original.debtUsd)} <span className="text-xs text-muted-foreground">{row.original.debtAsset}</span></span> : <Badge variant="outline" className="text-(--yellow)">unreliable · {usd(row.original.debtUsd, 2)}</Badge>) }),
   col.accessor('margin', { header: ({ column }) => <SortHeader column={column} label="Liquidator margin" />, cell: ({ row }) => <span className={`tabular-nums ${row.original.margin < 0 ? 'text-(--red)' : ''}`}>{usd(row.original.margin, 2)}</span> }),
   col.accessor('liquidator', { header: 'Liquidator', cell: ({ row }) => <span className="font-mono text-xs text-muted-foreground">{address(row.original.liquidator)}</span> }),
   col.accessor('tx', { header: 'Tx', cell: ({ row }) => (row.original.tx.startsWith('sample') ? NA : <a href={`https://suiscan.xyz/mainnet/tx/${row.original.tx}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"><ArrowSquareOutIcon className="size-3.5" />Suiscan</a>) }),
