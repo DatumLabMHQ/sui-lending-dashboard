@@ -58,8 +58,11 @@ export const loadSui = cache(async (): Promise<SuiOverview> => {
   const lending = pools.filter((p) => p.kind === 'lending'), cdp = pools.filter((p) => p.kind === 'cdp');
   const supplied = sum(pools, (p) => p.supplied), borrowed = sum(pools, (p) => p.borrowed);
   const recent = lq.rows.map(toLiquidation).sort((a, b) => b.ts.localeCompare(a.ts));
+  // A liquidation repays debt by definition. An event with no debt figure is a decoding gap (one NAVI event in
+  // September 2026 carried $72.8M of collateral and no debt); it stays in the table, flagged, and out of every total.
+  const priced = recent.filter((l) => l.debtUsd > 0);
   const ld = new Map<string, { events: number; usd: number }>();
-  recent.forEach((l) => { const c = ld.get(l.day) ?? { events: 0, usd: 0 }; c.events += 1; c.usd += l.collateralUsd; ld.set(l.day, c); });
+  priced.forEach((l) => { const c = ld.get(l.day) ?? { events: 0, usd: 0 }; c.events += 1; c.usd += l.collateralUsd; ld.set(l.day, c); });
   const liquidationsByDay: Point[] = [...ld.entries()].map(([day, v]) => ({ day, ...v })).sort(byDayAsc);
   const byProtocol: Share[] = protocols.map((p) => ({ name: p.name, value: p.tvlNet })).filter((s) => s.value > 0);
   const withLlama = protocols.filter((p) => p.defillama);
@@ -70,7 +73,7 @@ export const loadSui = cache(async (): Promise<SuiOverview> => {
   return {
     asOf, sample: false,
     kpis: { supplied, borrowed, utilization: supplied ? (borrowed / supplied) * 100 : 0, suppliedChange7d: change(sum(protocols, (p) => p.tvlGross), weekAgo ? num(weekAgo.supply) : undefined), borrowedChange7d: change(sum(protocols, (p) => p.borrows), weekAgo ? num(weekAgo.borrow) : undefined),
-      lendingPools: lending.length, cdpVaults: cdp.length, protocols: protocols.length, events30d: recent.length, liquidated30dUsd: sum(recent, (l) => l.collateralUsd), lendingSupplied: sum(lending, (p) => p.supplied), cdpSupplied: sum(cdp, (p) => p.supplied) },
+      lendingPools: lending.length, cdpVaults: cdp.length, protocols: protocols.length, events30d: priced.length, liquidated30dUsd: sum(priced, (l) => l.collateralUsd), unpriced30d: recent.length - priced.length, lendingSupplied: sum(lending, (p) => p.supplied), cdpSupplied: sum(cdp, (p) => p.supplied) },
     history, byProtocol, liquidationsByDay, pools, protocols, recent, reconciliation,
   };
 });

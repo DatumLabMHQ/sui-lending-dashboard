@@ -19,7 +19,7 @@ export default async function Overview() {
   return (
     <>
       <PageHeader eyebrow="Overview" question={config.question}
-        answer={<>{usd(k.supplied)} is supplied across {count(k.lendingPools)} lending pools and {count(k.cdpVaults)} Bucket vaults on {count(k.protocols)} protocols, and {pct(k.utilization, 1)} of it is borrowed. {lead ? `${lead.name} holds the most net TVL at ${usd(lead.tvlNet)}.` : ''} Liquidators seized {usd(k.liquidated30dUsd)} of collateral in {count(k.events30d)} events over thirty days. As of {d.asOf}.</>} />
+        answer={<>{usd(k.supplied)} is supplied across {count(k.lendingPools)} lending pools and {count(k.cdpVaults)} Bucket vaults on {count(k.protocols)} protocols, and {pct(k.utilization, 1)} of it is borrowed. {lead ? `${lead.name} holds the most net TVL at ${usd(lead.tvlNet)}.` : ''} Liquidators seized {usd(k.liquidated30dUsd)} of collateral in {k.events30d.toLocaleString('en-US')} events over thirty days. As of {d.asOf}.</>} />
       <SuiCards kpis={k} asOf={d.asOf} />
       <div className="px-4 lg:px-6">
         <ChartAreaInteractive data={d.history} asOf={d.asOf} title="Gross TVL and borrowed, all protocols" description={<>Gross TVL is everything deposited across the five protocols; borrowed is the debt against it. The gap is the idle liquidity that sets rates. Our own count where the pools are read directly, the protocol&apos;s figure where not; daily points, as of {d.asOf}.</>} />

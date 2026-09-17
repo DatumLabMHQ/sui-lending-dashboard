@@ -4,14 +4,15 @@ import { LiquidationsTable } from '@/components/sui-tables';
 import { BarChart, DonutChart } from '@/components/charts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { loadSui } from '@/lib/data';
-import { count, usd } from '@/lib/format';
+import { usd } from '@/lib/format';
 
 export const revalidate = 300;
 export const metadata = { title: 'Liquidations' };
 
 export default async function Liquidations() {
   const d = await loadSui();
-  const r = d.recent;
+  const r = d.recent.filter((l) => l.debtUsd > 0);
+  const unpriced = d.recent.length - r.length;
   const byProtocol = new Map<string, number>(); r.forEach((l) => byProtocol.set(l.protocolLabel, (byProtocol.get(l.protocolLabel) ?? 0) + l.collateralUsd));
   const seized = r.reduce((a, l) => a + l.collateralUsd, 0), gas = r.reduce((a, l) => a + l.gasUsd, 0), margin = r.reduce((a, l) => a + l.margin, 0);
   const liquidators = new Set(r.map((l) => l.liquidator)).size;
@@ -21,12 +22,12 @@ export default async function Liquidations() {
   return (
     <>
       <PageHeader eyebrow="Liquidations" question="How much collateral is being liquidated on Sui, and who is doing it?"
-        answer={<>{count(r.length)} liquidations in the last {config.liquidationDays} days seized {usd(seized)} of collateral across NAVI, Suilend, Scallop and AlphaLend, as of {d.asOf}. {count(liquidators)} distinct liquidator addresses did the work, paying {usd(gas)} in gas for an estimated {usd(margin)} of gross margin. Bucket liquidations are structurally near zero and are not indexed.</>} />
+        answer={<>{r.length.toLocaleString('en-US')} liquidations in the last {config.liquidationDays} days seized {usd(seized)} of collateral across NAVI, Suilend, Scallop and AlphaLend, as of {d.asOf}. {liquidators.toLocaleString('en-US')} distinct liquidator addresses did the work, paying {usd(gas, 2)} in gas for an estimated {usd(margin)} of gross margin.{unpriced ? ` ${unpriced.toLocaleString('en-US')} more ${unpriced === 1 ? 'event' : 'events'} arrived with no debt figure and ${unpriced === 1 ? 'is' : 'are'} left out of every total.` : ''} Bucket liquidations are structurally near zero and are not indexed.</>} />
       <div className="grid grid-cols-2 gap-4 px-4 lg:px-6 @2xl/main:grid-cols-4">
-        {stat('Events', count(r.length), `last ${config.liquidationDays} days`)}
+        {stat('Events', r.length.toLocaleString('en-US'), `last ${config.liquidationDays} days`)}
         {stat('Collateral seized', usd(seized), 'at the price at the time')}
-        {stat('Liquidators', count(liquidators), 'distinct addresses')}
-        {stat('Gross margin', usd(margin), `after ${usd(gas)} of gas`)}
+        {stat('Liquidators', liquidators.toLocaleString('en-US'), 'distinct addresses')}
+        {stat('Gross margin', usd(margin), `after ${usd(gas, 2)} of gas`)}
       </div>
       <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @4xl/main:grid-cols-2">
         <Card>
@@ -38,8 +39,8 @@ export default async function Liquidations() {
           <CardContent><DonutChart items={[...byProtocol.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)} unit="usd" height={220} centerLabel="seized" /></CardContent>
         </Card>
       </div>
-      <LiquidationsTable data={r} title="Recent liquidations" pageSize={15}
-        caption={<><b className="font-medium text-foreground">One row per event, newest first.</b> Collateral seized and debt repaid at the prices at the time; the liquidator&apos;s margin is the difference after gas. Open the transaction on Suiscan for the full trace.</>} />
+      <LiquidationsTable data={d.recent} title="Recent liquidations" pageSize={15}
+        caption={<><b className="font-medium text-foreground">One row per event, newest first.</b> Collateral seized and debt repaid at the prices at the time; the liquidator&apos;s margin is the difference. Rows marked &quot;no debt figure&quot; are decoding gaps and count in no total. Open the transaction on Suiscan for the full trace.</>} />
     </>
   );
 }
